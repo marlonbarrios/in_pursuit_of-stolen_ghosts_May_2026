@@ -35,7 +35,11 @@ const FAL_REALTIME_THROTTLE_MS = 96;
 /** Local scheduler so we do not export the board faster than the realtime client throttles. */
 const FAL_SCENE_THROTTLE_MS = 96;
 
-const PROMPT =
+/**
+ * Default img2img direction for Klein realtime. If sends start failing after prompt edits,
+ * try a shorter `NEXT_PUBLIC_FAL_PROMPT` (see README) or rely on the slightly smaller JPEG export.
+ */
+const DEFAULT_REALTIME_PROMPT =
   'Turn this into an abstract, highly organic image that fuses hieroglyphic signs and pictograms with the raw simplicity of cave painting—hand-made silhouettes, ritual marks, ochre and earth—and the tactile richness of oil paint: impasto, scraped layers, thin glazes, visible brush gesture. The content is ideas of memory: half-remembered shapes, palimpsest layers, faded and recurring marks, mnemonic signs that feel recovered rather than described—never a literal story or snapshot. Everything stays symbolic and non-literal: biomorphic shapes, swarming lines, and glyph-like figures suggested, never realistic bodies or scenes; biological imagery abstracted—cells, membranes, tissues, branching vessels, spores, simple marine or microbial echoes—as painted pattern and sign, never textbook illustration, never anatomical hyperrealism, no gore. Rooted in South America: Amazonian and Andean rhythm, lowland and high-altitude palettes, geoglyph-like lines, pre-Columbian textile and ceramic motifs as pure abstraction—never ethnographic illustration. Faint echoes of Mesoamerican glyph cadence and African diaspora form as pattern and color only. Depth comes from paint and surface, not from photographic space; strange palette, living organic motion within strict abstraction, not photorealistic, not hyperrealistic';
 
 type FalUiStatus = 'idle' | 'sending' | 'ok' | 'error';
@@ -288,6 +292,14 @@ export default function Home() {
 
   const seed = useMemo(() => Math.floor(Math.random() * 100_000), []);
 
+  const realtimePrompt = useMemo(() => {
+    const fromEnv =
+      typeof process !== 'undefined'
+        ? process.env.NEXT_PUBLIC_FAL_PROMPT?.trim()
+        : '';
+    return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_REALTIME_PROMPT;
+  }, []);
+
   const paintRasterOnFalPreviewCanvas = useCallback(
     async (rasterSrc: string, revokeRasterWhenDone: boolean): Promise<boolean> => {
       const gen = ++falPaintGenRef.current;
@@ -437,13 +449,13 @@ export default function Home() {
     if (!dataUrl) return;
     setFalStatus((s) => (s === 'error' ? s : 'sending'));
     send({
-      prompt: PROMPT,
+      prompt: realtimePrompt,
       image_url: dataUrl,
       seed,
       num_inference_steps: 4,
       image_size: 'square',
     });
-  }, [seed]);
+  }, [realtimePrompt, seed]);
 
   const schedulePushAfterDrawChange = useCallback(() => {
     const t = sceneThrottleRef.current;

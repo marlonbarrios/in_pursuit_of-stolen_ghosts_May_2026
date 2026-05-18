@@ -16,7 +16,7 @@ This repository is a **Next.js** web app—not the older p5.js circle sketch des
 - **Right:** Live preview driven by **Fal realtime** WebSockets ([FLUX.2 Klein realtime](https://fal.ai/models/fal-ai/flux-2/klein/realtime) by default): image-to-image over a persistent connection with **msgpack** frames.
 - **Audio:** Looping track (`public/ghost_stolen.mp3`).
 
-The text prompt that steers style and content (hieroglyphic / cave / oil / memory / South America / abstract biology, etc.) lives in **`app/page.tsx`** as the `PROMPT` constant—edit there to change the aesthetic direction.
+The text prompt that steers style and content (hieroglyphic / cave / oil / memory / South America / abstract biology, etc.) defaults in **`app/page.tsx`** as `DEFAULT_REALTIME_PROMPT`. Override without rebuilding the bundle text by setting **`NEXT_PUBLIC_FAL_PROMPT`** (see env table below).
 
 ### Stack
 
@@ -47,8 +47,9 @@ Create **`.env.local`** in the project root (never commit secrets):
 |----------|--------|---------|
 | `FAL_KEY` | Server | Minting JWTs in `/api/fal/realtime-token` and Fal REST via proxy |
 | `NEXT_PUBLIC_FAL_REALTIME_APP` | Client (optional) | Override default endpoint id (default: `fal-ai/flux-2/klein/realtime`) |
+| `NEXT_PUBLIC_FAL_PROMPT` | Client (optional) | **Full** realtime prompt string. Use if the default in `app/page.tsx` is too long combined with the sketch and the WebSocket stops returning frames. |
 
-Restart `npm run dev` after changing env vars.
+Restart `npm run dev` after changing env vars. For Vercel, add the same names in **Settings → Environment Variables** and redeploy.
 
 ### Install and run
 
@@ -71,6 +72,10 @@ npm start
 ### Debugging
 
 In development, the browser console may show lines prefixed with **`[Fal]`** (token check, WebSocket, frame receive/paint). If the preview stays empty, confirm `FAL_KEY`, draw real strokes, and inspect those messages and the **Network → WS** tab for `wss://fal.run/...`.
+
+If it **used to work** and stopped after **long prompt** edits, the combined **prompt + JPEG data URL** may be too large for a reliable realtime message. Set a shorter **`NEXT_PUBLIC_FAL_PROMPT`** (single line in `.env.local`) or shorten `DEFAULT_REALTIME_PROMPT` in code; the sketch export is capped (~640px JPEG) to keep payloads smaller.
+
+If **`npm run dev`** crashes or the browser shows errors like **`Cannot find module './XXXX.js'`** under `.next/server`, the dev cache is out of sync. Stop the dev server, run **`rm -rf .next`**, then **`npm run dev`** again (or run **`npm run build`** once to verify a clean compile).
 
 ## License
 

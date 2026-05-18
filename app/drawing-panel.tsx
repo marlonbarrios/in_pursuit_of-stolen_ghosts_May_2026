@@ -14,7 +14,7 @@ const Excalidraw = dynamic(
   { ssr: false },
 );
 
-/** Fal realtime: JPEG data URI; cap longest side ~704px. Never return a 0×0 canvas (toBlob would fail). */
+/** Fal realtime: JPEG data URI; cap longest side ~640px (keeps WS msgpack payload smaller). */
 function exportRealtimeSketchBlob(api: ExcalidrawImperativeAPI) {
   const elements = api.getSceneElements().filter((el) => !el.isDeleted);
   if (elements.length === 0) {
@@ -30,14 +30,14 @@ function exportRealtimeSketchBlob(api: ExcalidrawImperativeAPI) {
       },
       files: api.getFiles(),
       mimeType: 'image/jpeg',
-      quality: 0.5,
+      quality: 0.42,
       exportPadding: 10,
       /** When bounds are empty or tiny, still produce a valid canvas (avoids "couldn't export to blob"). */
       getDimensions: (width, height) => {
         const pad = 20;
         const bw = Math.max(1, width) + pad;
         const bh = Math.max(1, height) + pad;
-        const cap = 704;
+        const cap = 640;
         const m = Math.max(bw, bh);
         const s = m > cap ? cap / m : 1;
         return {
