@@ -44,6 +44,18 @@ const DEFAULT_REALTIME_PROMPT =
 
 type FalUiStatus = 'idle' | 'sending' | 'ok' | 'error';
 
+/** Map UI 0–100 to Klein `num_inference_steps` + `schedule_mu` (no separate CFG on this endpoint). */
+function kleinRealtimeIntensityToInput(intensityPercent: number): {
+  num_inference_steps: number;
+  schedule_mu: number;
+} {
+  const p = Math.min(100, Math.max(0, intensityPercent)) / 100;
+  return {
+    num_inference_steps: Math.max(1, Math.min(8, Math.round(1 + p * 7))),
+    schedule_mu: Math.round((2.1 + p * 0.4) * 100) / 100,
+  };
+}
+
 /** Hosted CDN URL → local blob for canvas paint (realtime payloads are usually `data:` already). */
 async function materializeFalImageForDisplay(rawUrl: string): Promise<string> {
   const u = rawUrl.trim();
@@ -289,6 +301,8 @@ export default function Home() {
   const [falStatus, setFalStatus] = useState<FalUiStatus>('idle');
   const [falDetail, setFalDetail] = useState<string | null>(null);
   const [lastFrameAt, setLastFrameAt] = useState<number | null>(null);
+  /** 0 = gentler / closer to sketch feel; 100 = stronger reinterpretation (more steps + schedule_mu). */
+  const [promptIntensity, setPromptIntensity] = useState(0);
 
   const seed = useMemo(() => Math.floor(Math.random() * 100_000), []);
 
@@ -448,14 +462,17 @@ export default function Home() {
     }
     if (!dataUrl) return;
     setFalStatus((s) => (s === 'error' ? s : 'sending'));
+    const { num_inference_steps, schedule_mu } =
+      kleinRealtimeIntensityToInput(promptIntensity);
     send({
       prompt: realtimePrompt,
       image_url: dataUrl,
       seed,
-      num_inference_steps: 4,
+      num_inference_steps,
+      schedule_mu,
       image_size: 'square',
     });
-  }, [realtimePrompt, seed]);
+  }, [promptIntensity, realtimePrompt, seed]);
 
   const schedulePushAfterDrawChange = useCallback(() => {
     const t = sceneThrottleRef.current;
@@ -815,6 +832,45 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
+          </div>
+          <div className="w-full max-w-[600px] rounded-md border border-amber-900/20 bg-[#fff8ee] px-3 py-2.5">
+            <label
+              htmlFor="fal-prompt-intensity"
+              className="flex items-center justify-between gap-3 text-sm font-medium text-amber-950"
+            >
+              <span>Prompt intensity</span>
+              <span className="tabular-nums text-amber-900/90">
+                {promptIntensity}%
+                <span className="ml-2 font-normal text-xs text-amber-900/70">
+                  (
+                  {kleinRealtimeIntensityToInput(promptIntensity).num_inference_steps}{' '}
+                  steps, μ&nbsp;
+                  {kleinRealtimeIntensityToInput(promptIntensity).schedule_mu})
+                </span>
+              </span>
+            </label>
+            <input
+              id="fal-prompt-intensity"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={promptIntensity}
+              onChange={(e) => setPromptIntensity(Number(e.target.value))}
+              className="mt-2 w-full h-2 cursor-pointer appearance-none rounded-full bg-amber-200 accent-amber-800"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={promptIntensity}
+              aria-describedby="fal-prompt-intensity-hint"
+            />
+            <p
+              id="fal-prompt-intensity-hint"
+              className="mt-1.5 text-xs text-amber-900/75 leading-relaxed"
+            >
+              Klein realtime has no text-guidance slider; higher values increase inference steps
+              and schedule sharpness so the written prompt can pull the image further from the
+              sketch (more compute per frame).
+            </p>
           </div>
         </div>
       </div>
